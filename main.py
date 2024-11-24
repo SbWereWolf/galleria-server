@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, get_args
 
 from fastapi import FastAPI, HTTPException, Query, Path, Request
 from fastapi.responses import JSONResponse
@@ -221,10 +221,13 @@ async def find_artists_by_style(
         raise HTTPException(status_code=403, detail="User not logged in")
 
     connect_db()
+    existing_styles = list()
     if style_list is not None:
-        existing_style = next((style_item for style_item in AllowedStyles if style_item == style_list), None)
+        existing_style = next((style_item for style_item in style_list if style_item in AllowedStyles), None)
 
-    if style_list is not None and existing_style is None:
+        existing_styles = list(set(style_list) & set(get_args(AllowedStyles)))
+
+    if style_list is not None and not existing_styles:
         raise HTTPException(status_code=400, detail="Style not found in AllowedStyles")
 
     # Если стиль не указан, возвращаем всех артистов
