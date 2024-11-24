@@ -1,0 +1,20 @@
+import psycopg2
+try:
+    connection = psycopg2.connect(user="sysadmin",
+                                  password="p@ssw0rd",
+                                  host="127.0.0.1",
+                                  port="5432",
+                                  database="my_database")
+
+    cursor = connection.cursor()
+    # Print PostgreSQL Connection properties
+    print(connection.get_dsn_parameters(), "\n")
+
+except (Exception, psycopg2.Error) as error :
+    print("Error while connecting to PostgreSQL", error)
+finally:
+    #closing database connection.
+        if(connection):
+            cursor.close()
+            connection.close()
+            print("PostgreSQL connection is closed")
