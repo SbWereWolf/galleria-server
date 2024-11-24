@@ -17,7 +17,7 @@ rootLogger.addHandler(consoleHandler)
 
 
 def connect_db():
-    '''
+    """
     try:
         connection = psycopg2.connect(user="postgres",
                                     password="root",
@@ -38,7 +38,7 @@ def connect_db():
                 connection.close()
                 ##print("PostgreSQL connection is closed")
                 rootLogger.info("PostgreSQL connection is closed")
-    '''
+    """
 
 
 app = FastAPI(title="Картины на заказ",
@@ -557,7 +557,7 @@ async def logout(
         response.set_cookie(key="login", value="")
         return response
     else:
-        raise HTTPException(status_code=400, detail="No user is currently logged in")
+        raise HTTPException(status_code=401, detail="No user is currently logged in")
 
 
 @app.get("/Accounts", response_model=List[Account], tags=["Accounts"])
@@ -569,7 +569,7 @@ async def get_accounts_by_name(
 ):
     login = request.cookies.get('login')
     if login is None or login == "":
-        raise HTTPException(status_code=400, detail="No user is currently logged in")
+        raise HTTPException(status_code=401, detail="No user is currently logged in")
 
     connect_db()
     results = []
@@ -593,7 +593,7 @@ async def update_account_name(
 ):
     login = request.cookies.get('login')
     if login is None or login == "":
-        raise HTTPException(status_code=400, detail="No user is currently logged in")
+        raise HTTPException(status_code=401, detail="No user is currently logged in")
 
     connect_db()
     # Поиск аккаунта по логину
@@ -616,7 +616,7 @@ async def delete_account(
 ):  # Логин извлекается автоматически из куки
     login = request.cookies.get('login')
     if login is None or login == "":
-        raise HTTPException(status_code=400, detail="No user is currently logged in")
+        raise HTTPException(status_code=401, detail="No user is currently logged in")
 
     connect_db()
     # Поиск аккаунта по логину
