@@ -111,8 +111,10 @@ class Artist(BaseModel):
 
 class Session(BaseModel):
     login: str = Field(..., example='10')
-    sessionId: str = Field(..., example=10)
+    sessionId: str = Field(..., example='f376407b-2b01-47b2-9e29-892cf7ea1606')
 
+
+sessions_db = []
 
 # Пример базы данных
 artists_db = [
@@ -543,11 +545,14 @@ async def login(
     for account in accounts_db:
         if account.login == credentials.login and account.password == credentials.password:
             session_id = str(uuid.uuid4())
+
+            session = Session(sessionId=session_id, login=credentials.login)
+            sessions_db.append(session)
+
             content = {
                 "message": "Login successful",
                 "session_id": session_id
             }
-
 
             response = JSONResponse(content=content)
 
