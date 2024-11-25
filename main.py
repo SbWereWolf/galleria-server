@@ -466,7 +466,7 @@ async def delete_voucher(
 ######################################################################################################
 
 
-AllowedRols = Literal[
+AllowedRoles = Literal[
     "visitor",
     "artist"
 ]
