@@ -1,4 +1,5 @@
 import logging
+import uuid
 from typing import List, Optional, Literal, get_args
 
 from fastapi import FastAPI, HTTPException, Query, Path, Request
@@ -106,6 +107,11 @@ class Artist(BaseModel):
         'expressionism', 'cubism', 'futurism', 'abstractionism',
         'dadaism', 'pop-art'
     ] = Field(..., example='realism')
+
+
+class Session(BaseModel):
+    login: str = Field(..., example='10')
+    sessionId: str = Field(..., example=10)
 
 
 # Пример базы данных
@@ -536,9 +542,15 @@ async def login(
     connect_db()
     for account in accounts_db:
         if account.login == credentials.login and account.password == credentials.password:
-            content = {"message": "Login successful"}
+            session_id = str(uuid.uuid4())
+            content = {
+                "message": "Login successful",
+                "session_id": session_id
+            }
+
+
             response = JSONResponse(content=content)
-            response.set_cookie(key="login", value=credentials.login)
+
             return response
 
     raise HTTPException(status_code=400, detail="Invalid login/password supplied")
