@@ -2,7 +2,7 @@ import logging
 import uuid
 from typing import List, Optional, Literal, get_args
 
-from fastapi import FastAPI, HTTPException, Query, Path, Request
+from fastapi import FastAPI, HTTPException, Query, Path
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -111,7 +111,7 @@ class Artist(BaseModel):
 
 class Session(BaseModel):
     login: str = Field(..., example='10')
-    sessionId: str = Field(..., example='f376407b-2b01-47b2-9e29-892cf7ea1606')
+    session_id: str = Field(..., example='f376407b-2b01-47b2-9e29-892cf7ea1606')
 
 
 sessions_db = []
@@ -183,16 +183,13 @@ AllowedStyles = Literal[
 
 @app.put("/Artists", response_model=Artist, tags=["Artists"])
 async def update_artist(
-        request: Request,
-        new_style: AllowedStyles
+        new_style: AllowedStyles,
+        session_id: str
 ):
-    login = request.cookies.get('login')
-    if login is None or login == "":
-        raise HTTPException(status_code=403, detail="User not logged in")
-
     connect_db()
-    # Ищем артиста по login
+    login = find_login(session_id)
 
+    # Ищем артиста по login
     existing_artist = next((artist for artist in artists_db if artist.login == login), None)
 
     if existing_artist is None:
@@ -205,7 +202,7 @@ async def update_artist(
 
 @app.get("/Artists", response_model=List[Artist], tags=["Artists"])
 async def find_artists_by_style(
-        request: Request,
+        session_id: str,
         style_list: Optional[List[str]] = Query(
             default=None,
             description="Style values that need to be considered for filter",
@@ -222,17 +219,13 @@ async def find_artists_by_style(
                 "pop-art"
             ],
             title="Style"
-        )
+        ),
 ):
-    login = request.cookies.get('login')
-    if login is None or login == "":
-        raise HTTPException(status_code=403, detail="User not logged in")
-
     connect_db()
+    login = find_login(session_id)
+
     existing_styles = list()
     if style_list is not None:
-        existing_style = next((style_item for style_item in style_list if style_item in AllowedStyles), None)
-
         existing_styles = list(set(style_list) & set(get_args(AllowedStyles)))
 
     if style_list is not None and not existing_styles:
@@ -253,16 +246,12 @@ async def find_artists_by_style(
 
 @app.get("/Artists/{artist_id}", response_model=Artist, tags=["Artists"])
 async def get_artist_by_id(
-        request: Request,
+        session_id: str,
         artist_id: int = Path(..., description="ID of Artists to return")
 ):
-    login = request.cookies.get('login')
-    if login is None or login == "":
-        raise HTTPException(status_code=403, detail="User not logged in")
-
     connect_db()
+    login = find_login(session_id)
     artist = next((artist for artist in artists_db if artist.id == artist_id), None)
-    ##artist = next((artist for artist in artists_db if artist.login == login), None)
 
     if artist is None:
         raise HTTPException(status_code=404, detail="Artists not found")
@@ -275,18 +264,11 @@ async def get_artist_by_id(
 
 @app.post("/Vouchers", response_model=Voucher, tags=["Vouchers"])
 async def place_vouchers(
-        request: Request,
+        session_id: str,
         voucher: Voucher
 ):
-    # Получаем логин из куки
-    login = request.cookies.get('login')
-
-    # Проверяем, что логин существует и не пустой
-    if login is None or login == "":
-        raise HTTPException(status_code=403, detail="User not logged in")
-
     connect_db()
-    # Ищем посетителя по ID
+    login = find_login(session_id)
     existing_visitor = next((visitor for visitor in visitors_db if visitor.login == login), None)
 
     if existing_visitor is None:
@@ -315,7 +297,7 @@ async def place_vouchers(
 
 @app.get("/Vouchers", response_model=List[Voucher], tags=["Vouchers"])
 async def find_vouchers(
-        request: Request,
+        session_id: str,
         style: Optional[List[str]] = Query(
             default=None,
             description="Style values that need to be considered for filter",
@@ -344,14 +326,8 @@ async def find_vouchers(
             title="Status"
         )
 ):
-    # Получаем логин из куки
-    login = request.cookies.get('login')
-
-    # Проверяем, что логин существует и не пустой
-    if login is None or login == "":
-        raise HTTPException(status_code=403, detail="User not logged in")
-
     connect_db()
+    login = find_login(session_id)
     if not vouchers_db:
         raise HTTPException(status_code=404, detail="Vouchers not exists, please add someone")
     # Если ни стиль, ни статус не указаны, возвращаем все ваучеры
@@ -379,17 +355,11 @@ async def find_vouchers(
 
 @app.get("/Vouchers/{voucher_id}", response_model=Voucher, tags=["Vouchers"])
 async def get_vouchers_by_id(
-        request: Request,
+        session_id: str,
         voucher_id: int = Path(..., description="ID of Vouchers to return")
 ):
-    # Получаем логин из куки
-    login = request.cookies.get('login')
-
-    # Проверяем, что логин существует и не пустой
-    if login is None or login == "":
-        raise HTTPException(status_code=403, detail="User not logged in")
-
     connect_db()
+    login = find_login(session_id)
     voucher = next((v for v in vouchers_db if v.id == voucher_id), None)
 
     if voucher is None:
@@ -407,15 +377,12 @@ AllowedStatus = Literal[
 
 @app.put("/Vouchers", response_model=Voucher, tags=["Vouchers"])
 async def update_voucher(
-        request: Request,
+        session_id: str,
         voucher_id: int,
         new_status: AllowedStatus
 ):
-    login = request.cookies.get('login')
-    if login is None or login == "":
-        raise HTTPException(status_code=403, detail="User not logged in")
-
     connect_db()
+    login = find_login(session_id)
     # Ищем художника по login
     existing_artist = next((artist for artist in artists_db if artist.login == login), None)
 
@@ -440,14 +407,11 @@ async def update_voucher(
 
 @app.delete("/Vouchers/{vouchers_id}", tags=["Vouchers"])
 async def delete_voucher(
-        request: Request,
+        session_id: str,
         vouchers_id: int
 ):
-    login = request.cookies.get('login')
-    if login is None or login == "":
-        raise HTTPException(status_code=403, detail="User not logged in")
-
     connect_db()
+    login = find_login(session_id)
     # Ищем посетителя по ID
     existing_visitor = next((visitor for visitor in visitors_db if visitor.login == login), None)
 
@@ -501,7 +465,7 @@ async def place_accounts(
         date_of_birth=account.date_of_birth
     )
 
-    if (account.type_role == "artist"):
+    if account.type_role == "artist":
         new_artist = Artist(
             id=max((voucher.id for voucher in artists_db), default=0) + 1,
             login=account.login,
@@ -509,7 +473,7 @@ async def place_accounts(
         )
         artists_db.append(new_artist)
 
-    if (account.type_role == "visitor"):
+    if account.type_role == "visitor":
         new_visitor = Visitor(
             id=max((voucher.id for voucher in visitors_db), default=0) + 1,
             login=account.login,
@@ -517,7 +481,6 @@ async def place_accounts(
         )
         visitors_db.append(new_visitor)
 
-    connect_db()
     # Добавляем новый предзаказ в базу данных
     accounts_db.append(new_account)
 
@@ -546,7 +509,7 @@ async def login(
         if account.login == credentials.login and account.password == credentials.password:
             session_id = str(uuid.uuid4())
 
-            session = Session(sessionId=session_id, login=credentials.login)
+            session = Session(session_id=session_id, login=credentials.login)
             sessions_db.append(session)
 
             content = {
@@ -563,36 +526,64 @@ async def login(
 
 @app.get("/Accounts/logout", tags=["Accounts"])
 async def logout(
-        request: Request,
-        ##login: str = Cookie(None)
+        session_id: str = ''
 ):
-    login = request.cookies.get('login')
+    rootLogger.debug(f"session_id = `{session_id}` ", )
+    session = next((session for session in sessions_db if session.session_id == session_id), None)
+    if session is None:
+        rootLogger.debug(f"Session not found ", )
+        raise HTTPException(status_code=401, detail="No user is currently logged in")
 
-    if login is not (None or ""):
+    if session is not None:
+        rootLogger.debug(f"Session found login:`{session.login}`, session id:`{session.session_id}`", )
+        sessions_db.remove(session)
         content = {"message": "Logout successful"}
         response = JSONResponse(content=content)
-        response.set_cookie(key="login", value="")
         return response
-    else:
-        raise HTTPException(status_code=401, detail="No user is currently logged in")
+
+
+def find_login(session_id: str) -> str:
+    rootLogger.debug(f"session_id = `{session_id}` ", )
+    session = next((session for session in sessions_db if session.session_id == session_id), None)
+    if session is None:
+        rootLogger.debug(f"Session not found ", )
+        raise HTTPException(status_code=403, detail="User not logged in")
+
+    login = ''
+    if session is not None:
+        rootLogger.debug(f"Session found login:`{session.login}`, session id:`{session.session_id}`", )
+        login = session.login
+
+    return login
 
 
 @app.get("/Accounts", response_model=List[Account], tags=["Accounts"])
 async def get_accounts_by_name(
-        request: Request,
+        session_id: str,
         first_name: Optional[str] = Query(None, description="The first name to search for."),
         last_name: Optional[str] = Query(None, description="The last name to search for."),
-        ##login: str = Cookie(None)  # Извлекаем логин из куки
 ):
-    login = request.cookies.get('login')
-    if login is None or login == "":
-        raise HTTPException(status_code=401, detail="No user is currently logged in")
-
     connect_db()
+    login = find_login(session_id)
+
     results = []
     for account in accounts_db:
-        if (first_name and account.firstName.lower() == first_name.lower()) and (
-                last_name and account.surName.lower() == last_name.lower()):
+        if (
+                (first_name
+                 and last_name is None
+                 and account.firstName.lower() == first_name.lower()
+                ) or (
+                last_name
+                and first_name is None
+                and account.surName.lower() == last_name.lower()
+        )
+                or (
+                first_name
+                and last_name
+                and account.firstName.lower() == first_name.lower()
+                and account.surName.lower() == last_name.lower()
+        )
+        ):
             results.append(account)
 
     if not results:
@@ -603,16 +594,13 @@ async def get_accounts_by_name(
 
 @app.put("/Accounts", tags=["Accounts"])
 async def update_account_name(
-        request: Request,
+        session_id: str,
         new_first_name: str = Query(..., description="New first name for the account"),
         new_last_name: str = Query(..., description="New last name for the account"),
-        ##login: str = Cookie(None)  # Логин извлекается автоматически из куки
 ):
-    login = request.cookies.get('login')
-    if login is None or login == "":
-        raise HTTPException(status_code=401, detail="No user is currently logged in")
-
     connect_db()
+    login = find_login(session_id)
+
     # Поиск аккаунта по логину
     account_to_update = next((account for account in accounts_db if account.login == login), None)
 
@@ -628,14 +616,12 @@ async def update_account_name(
 
 @app.delete("/Accounts", tags=["Accounts"])
 async def delete_account(
-        request: Request,
+        session_id: str,
         ##login: str = Cookie(None)
-):  # Логин извлекается автоматически из куки
-    login = request.cookies.get('login')
-    if login is None or login == "":
-        raise HTTPException(status_code=401, detail="No user is currently logged in")
-
+):
     connect_db()
+    login = find_login(session_id)
+
     # Поиск аккаунта по логину
     account_to_delete = next((account for account in accounts_db if account.login == login), None)
 
@@ -667,7 +653,7 @@ async def delete_account(
     # Удаляем аккаунт из базы данных
     accounts_db.remove(account_to_delete)
 
-    await logout(request)
+    await logout(session_id)
 
     return {"message": "Account deleted successfully"}
 
@@ -677,15 +663,12 @@ async def delete_account(
 
 @app.put("/Visitors", response_model=Visitor, tags=["Visitors"])
 async def update_visitor(
-        request: Request,
+        session_id: str,
         new_residence: str,
-        ##login: str = Cookie(None)  # Извлекаем логин из куки
 ):
-    login = request.cookies.get('login')
-    if login is None or login == "":
-        raise HTTPException(status_code=403, detail="User not logged in")
-
     connect_db()
+    login = find_login(session_id)
+
     # Ищем посетителя по ID
     existing_visitor = next((visitor for visitor in visitors_db if visitor.login == login), None)
 
@@ -699,15 +682,11 @@ async def update_visitor(
 
 @app.get("/Visitors/{visitor_id}", response_model=Visitor, tags=["Visitors"])
 async def get_visitor_by_id(
-        request: Request,
+        session_id: str,
         visitor_id: int = Path(..., description="ID of Visitor to return"),
-        ##login: str = Cookie(None)  # Извлекаем логин из куки
 ):
-    login = request.cookies.get('login')
-    if login is None or login == "":
-        raise HTTPException(status_code=403, detail="User not logged in")
-
     connect_db()
+    login = find_login(session_id)
     # Ищем посетителя по ID
     visitor = next((visitor for visitor in visitors_db if visitor.id == visitor_id), None)
 
@@ -719,14 +698,10 @@ async def get_visitor_by_id(
 
 @app.get("/Visitors", response_model=List[Visitor], tags=["Visitors"])
 async def get_all_visitors(
-        request: Request,
-        ##login: str = Cookie(None)  # Извлекаем логин из куки
+        session_id: str,
 ):
-    login = request.cookies.get('login')
-    if login is None or login == "":
-        raise HTTPException(status_code=403, detail="User not logged in")
-
     connect_db()
+    login = find_login(session_id)
 
     # Возвращаем всех посетителей
     return visitors_db  # Предполагается, что visitors_db - это список всех посетителей
