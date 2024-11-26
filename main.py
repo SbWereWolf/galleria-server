@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 rootLogger = logging.getLogger()
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 fileHandler = logging.FileHandler("log.log")
 rootLogger.addHandler(fileHandler)
@@ -61,7 +61,7 @@ app.add_middleware(
 @app.get("/")
 async def read_root():
     return {
-        "Api-web-client-address": "http://127.0.0.1:8001/docs"
+        "status": "healthy"
     }
 
 
@@ -200,7 +200,7 @@ async def update_artist(
     return existing_artist
 
 
-@app.get("/Artists", response_model=List[Artist], tags=["Artists"])
+@app.get("/Artists/{session_id}/", response_model=List[Artist], tags=["Artists"])
 async def find_artists_by_style(
         session_id: str,
         style_list: Optional[List[str]] = Query(
@@ -244,14 +244,16 @@ async def find_artists_by_style(
     return filtered_artists
 
 
-@app.get("/Artists/{artist_id}", response_model=Artist, tags=["Artists"])
+@app.get("/Artists/{artist_id}/", response_model=Artist, tags=["Artists"])
 async def get_artist_by_id(
         session_id: str,
         artist_id: int = Path(..., description="ID of Artists to return")
 ):
     connect_db()
     login = find_login(session_id)
+    rootLogger.debug(f"Find with artist_id: `{artist_id}`")
     artist = next((artist for artist in artists_db if artist.id == artist_id), None)
+    rootLogger.debug(f"Found artist: `{artist}`")
 
     if artist is None:
         raise HTTPException(status_code=404, detail="Artists not found")
@@ -501,7 +503,7 @@ class Cookies(BaseModel):
 
 
 @app.post("/Accounts/login", tags=["Accounts"])
-async def login(
+async def log_in(
         credentials: Credentials
 ):
     connect_db()
@@ -511,6 +513,8 @@ async def login(
 
             session = Session(session_id=session_id, login=credentials.login)
             sessions_db.append(session)
+
+            rootLogger.debug(f"session_id: `{session_id}`, login: `{account.login}`")
 
             content = {
                 "message": "Login successful",
@@ -559,7 +563,7 @@ def find_login(session_id: str) -> str:
 
 @app.get("/Accounts", response_model=List[Account], tags=["Accounts"])
 async def get_accounts_by_name(
-        session_id: str,
+        session_id: str = Query(description="Working session id"),
         first_name: Optional[str] = Query(None, description="The first name to search for."),
         last_name: Optional[str] = Query(None, description="The last name to search for."),
 ):
@@ -567,27 +571,41 @@ async def get_accounts_by_name(
     login = find_login(session_id)
 
     results = []
-    for account in accounts_db:
-        if (
-                (first_name
-                 and last_name is None
-                 and account.firstName.lower() == first_name.lower()
-                ) or (
-                last_name
-                and first_name is None
-                and account.surName.lower() == last_name.lower()
-        )
-                or (
-                first_name
-                and last_name
-                and account.firstName.lower() == first_name.lower()
-                and account.surName.lower() == last_name.lower()
-        )
-        ):
-            results.append(account)
+    rootLogger.debug(
+        f"Find account with first_name: '{first_name}' and last_name `{last_name}`"
+    )
 
-    if not results:
-        raise HTTPException(status_code=404, detail="Accounts not found")
+    if (first_name is None or first_name == '') and (last_name is None or last_name == ''):
+        results = accounts_db
+
+    if first_name is not None or last_name is not None:
+        for account in accounts_db:
+            rootLogger.debug(
+                f"first_name: '{first_name}', account.first_name `{account.firstName}`, last_name `{last_name}`, account.surName `{account.surName}`"
+            )
+            if (
+                    (first_name
+                     and (last_name is None or last_name == '')
+                     and account.firstName.lower() == first_name.lower()
+                    ) or (
+                    last_name
+                    and (first_name is None or first_name == '')
+                    and account.surName.lower() == last_name.lower()
+            )
+                    or (
+                    first_name and first_name != ''
+                    and last_name and last_name != ''
+                    and account.firstName.lower() == first_name.lower()
+                    and account.surName.lower() == last_name.lower()
+            )
+            ):
+                rootLogger.debug('Match !')
+                results.append(account)
+            else:
+                rootLogger.debug('Not match !')
+
+        if not results:
+            raise HTTPException(status_code=404, detail="Accounts not found")
 
     return results
 
@@ -696,7 +714,7 @@ async def get_visitor_by_id(
     return visitor
 
 
-@app.get("/Visitors", response_model=List[Visitor], tags=["Visitors"])
+@app.get("/Visitors/{session_id}/", response_model=List[Visitor], tags=["Visitors"])
 async def get_all_visitors(
         session_id: str,
 ):
