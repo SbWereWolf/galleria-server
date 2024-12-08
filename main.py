@@ -6,6 +6,8 @@ from fastapi import FastAPI, HTTPException, Query, Path
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+# import psycopg2
+
 rootLogger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
 
@@ -24,7 +26,7 @@ def connect_db():
                                     password="root",
                                     host="127.0.0.1",
                                     port="5433",
-                                    database="fias")
+                                    database="bob")
 
         cursor = connection.cursor()
         # Print PostgreSQL Connection properties
@@ -453,7 +455,7 @@ async def place_accounts(
     if any(v.login == account.login for v in accounts_db):
         raise HTTPException(status_code=400, detail="Error login already exists.")
 
-    # Создаем новый 
+    # Создаем новый
     new_account = Account(
         login=account.login,
         password=account.password,
@@ -466,6 +468,62 @@ async def place_accounts(
         sex=account.sex,
         date_of_birth=account.date_of_birth
     )
+
+    if new_account.surName is None:
+        new_account.surName = ''
+    if new_account.firstName is None:
+        new_account.firstName = ''
+    if new_account.patronymic is None:
+        new_account.patronymic = ''
+    if new_account.email is None:
+        new_account.email = ''
+    if new_account.type_role is None:
+        new_account.type_role = ''
+    if new_account.phone is None:
+        new_account.phone = ''
+    if new_account.sex is None:
+        new_account.sex = ''
+    if new_account.date_of_birth is None:
+        new_account.date_of_birth = ''
+    """
+    connection=None
+    try:        
+        connection = psycopg2.connect(user="postgres",
+                                    password="root",
+                                    host="127.0.0.1",
+                                    port="5433",
+                                    database="api")
+        
+        cursor = connection.cursor()
+        
+        # Print PostgreSQL Connection properties
+        rootLogger.debug("Connection established")
+        cursor.execute(
+            'INSERT INTO api.account(login,password,sur_name,first_name,patronymic,email,type_role,phone,sex,date_of_birth)VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+            (
+                new_account.login, 
+                new_account.password, 
+                new_account.surName, 
+                new_account.firstName, 
+                new_account.patronymic, 
+                new_account.email, 
+                new_account.type_role, 
+                new_account.phone,
+                new_account.sex,
+                new_account.date_of_birth
+            )
+        )
+    
+        connection.commit()        
+    except (Exception, psycopg2.Error) as error :
+        print("Error while connecting to PostgreSQL", error)
+    finally:
+        #closing database connection.
+            if(connection):
+                cursor.close()
+                connection.close()
+                rootLogger.debug("PostgreSQL connection is closed")
+    """
 
     if account.type_role == "artist":
         new_artist = Artist(
@@ -483,7 +541,7 @@ async def place_accounts(
         )
         visitors_db.append(new_visitor)
 
-    # Добавляем новый предзаказ в базу данных
+    # Добавляем новую учётную запись в базу данных
     accounts_db.append(new_account)
 
     return new_account
