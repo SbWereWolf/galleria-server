@@ -202,7 +202,7 @@ async def update_artist(
     return existing_artist
 
 
-@app.get("/Artists/{session_id}/", response_model=List[Artist], tags=["Artists"])
+@app.get("/Artists/list/", response_model=List[Artist], tags=["Artists"])
 async def find_artists_by_style(
         session_id: str,
         style_list: Optional[List[str]] = Query(
@@ -246,7 +246,7 @@ async def find_artists_by_style(
     return filtered_artists
 
 
-@app.get("/Artists/{artist_id}/", response_model=Artist, tags=["Artists"])
+@app.get("/Artists/", response_model=Artist, tags=["Artists"])
 async def get_artist_by_id(
         session_id: str,
         artist_id: int = Path(..., description="ID of Artists to return")
@@ -267,7 +267,7 @@ async def get_artist_by_id(
 
 
 @app.post("/Vouchers", response_model=Voucher, tags=["Vouchers"])
-async def place_vouchers(
+async def place_voucher(
         session_id: str,
         voucher: Voucher
 ):
@@ -299,7 +299,7 @@ async def place_vouchers(
     return new_voucher
 
 
-@app.get("/Vouchers", response_model=List[Voucher], tags=["Vouchers"])
+@app.get("/Vouchers/list", response_model=List[Voucher], tags=["Vouchers"])
 async def find_vouchers(
         session_id: str,
         style: Optional[List[str]] = Query(
@@ -357,8 +357,8 @@ async def find_vouchers(
     return filtered_vouchers
 
 
-@app.get("/Vouchers/{voucher_id}", response_model=Voucher, tags=["Vouchers"])
-async def get_vouchers_by_id(
+@app.get("/Vouchers", response_model=Voucher, tags=["Vouchers"])
+async def get_voucher_by_id(
         session_id: str,
         voucher_id: int = Path(..., description="ID of Vouchers to return")
 ):
@@ -409,7 +409,7 @@ async def update_voucher(
     return existing_voucher
 
 
-@app.delete("/Vouchers/{vouchers_id}", tags=["Vouchers"])
+@app.delete("/Vouchers", tags=["Vouchers"])
 async def delete_voucher(
         session_id: str,
         vouchers_id: int
@@ -449,7 +449,7 @@ AllowedRoles = Literal[
 
 
 @app.post("/Accounts", response_model=Account, tags=["Accounts"])
-async def place_accounts(
+async def place_account(
         account: Account,
 ):
     if any(v.login == account.login for v in accounts_db):
@@ -560,7 +560,7 @@ class Cookies(BaseModel):
     login: str | None = None
 
 
-@app.post("/Accounts/login", tags=["Accounts"])
+@app.post("/Accounts/log_in", tags=["Accounts"])
 async def log_in(
         credentials: Credentials
 ):
@@ -586,7 +586,7 @@ async def log_in(
     raise HTTPException(status_code=400, detail="Invalid login/password supplied")
 
 
-@app.get("/Accounts/logout", tags=["Accounts"])
+@app.delete("/Accounts/log_out", tags=["Accounts"])
 async def logout(
         session_id: str = ''
 ):
@@ -619,8 +619,8 @@ def find_login(session_id: str) -> str:
     return login
 
 
-@app.get("/Accounts", response_model=List[Account], tags=["Accounts"])
-async def get_accounts_by_name(
+@app.get("/Accounts/list", response_model=List[Account], tags=["Accounts"])
+async def find_accounts(
         session_id: str = Query(description="Working session id"),
         first_name: Optional[str] = Query(None, description="The first name to search for."),
         last_name: Optional[str] = Query(None, description="The last name to search for."),
@@ -772,7 +772,7 @@ async def get_visitor_by_id(
     return visitor
 
 
-@app.get("/Visitors/{session_id}/", response_model=List[Visitor], tags=["Visitors"])
+@app.get("/Visitors/list", response_model=List[Visitor], tags=["Visitors"])
 async def get_all_visitors(
         session_id: str,
 ):
