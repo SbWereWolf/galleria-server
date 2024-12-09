@@ -56,6 +56,9 @@ class Credentials(BaseModel):
     password: str = Field(..., example='password')
 
 
+import uuid
+
+
 def create_session(credentials: Credentials):
     connect_db()
     session_id = ""
@@ -537,6 +540,3 @@ def remove_voucher(
     # Удаляем ваучер из базы данных
     vouchers_db.pop(voucher_index)
     return "Ok"
-
-
-import uuid
