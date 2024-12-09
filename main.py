@@ -1,56 +1,30 @@
 import logging
-import uuid
-from typing import List, Optional, Literal, get_args
 
-from fastapi import FastAPI, HTTPException, Query, Path
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-
-# import psycopg2
+from models import find_all_artists, find_artist, find_all_vouchers, \
+    find_voucher, find_all_accounts, find_visitor, find_all_visitors, \
+    Artist, Voucher, Account, Visitor, Credentials, AllowedStyles, \
+    write_visitor, write_artist, write_voucher, write_account, \
+    create_voucher, remove_voucher, create_account, remove_account, \
+    create_session, remove_session
 
 rootLogger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
 
 fileHandler = logging.FileHandler("log.log")
-rootLogger.addHandler(fileHandler)
-
 consoleHandler = logging.StreamHandler()
 
+rootLogger.addHandler(fileHandler)
 rootLogger.addHandler(consoleHandler)
 
+from fastapi import FastAPI, Query, Path
 
-def connect_db():
-    """
-    try:
-        connection = psycopg2.connect(user="postgres",
-                                    password="root",
-                                    host="127.0.0.1",
-                                    port="5433",
-                                    database="bob")
-
-        cursor = connection.cursor()
-        # Print PostgreSQL Connection properties
-        rootLogger.info("Connection established")
-
-    except (Exception, psycopg2.Error) as error :
-        print("Error while connecting to PostgreSQL", error)
-    finally:
-        #closing database connection.
-            if(connection):
-                cursor.close()
-                connection.close()
-                ##print("PostgreSQL connection is closed")
-                rootLogger.info("PostgreSQL connection is closed")
-    """
-
-
-app = FastAPI(title="Картины на заказ",
-              description="Посетители создают заказ, художники его выполняют")
-
+app = FastAPI(
+    title="Картины на заказ",
+    description="Посетители создают заказ, художники его выполняют"
+)
 from fastapi.middleware.cors import CORSMiddleware
 
 origins = ["*"]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -60,71 +34,24 @@ app.add_middleware(
 )
 
 
+def get_status():
+    return {"status": "healthy"}
+
+
 @app.get("/")
 async def read_root():
-    return {
-        "status": "healthy"
-    }
+    return get_status()
 
 
-class Voucher(BaseModel):
-    id: int = Field(..., example=10)
-    customer: str = Field(..., example="198login")
-    executor: str = Field(..., example="198login")
-    amount_pictures: int = Field(..., example=3)
-    price: int = Field(..., example=100)
-    description: str = Field(..., example="3 pictures for 100$")
-    status: Literal['placed', 'in work', 'ready'] = Field(..., example='placed')
-    style: Literal[
-        'realism', 'impressionism', 'fauvism', 'modern',
-        'expressionism', 'cubism', 'futurism', 'abstractionism',
-        'dadaism', 'pop-art'
-    ] = Field(..., example='realism')
-
-
-class Account(BaseModel):
-    login: str = Field(..., example='10')
-    password: str = Field(..., example='theAccounts')
-    surName: str = Field(..., example='Green')
-    firstName: str = Field(..., example='John')
-    patronymic: Optional[str] = Field(None, example='James')
-    email: str = Field(..., example='john@email.com')
-    type_role: str = Field(..., example='artist')
-    phone: str = Field(..., example='12345')
-    sex: Literal['f', 'm'] = Field(..., example='m')
-    date_of_birth: str = Field(..., example='2000-01-01')  # формат даты
-
-
-class Visitor(BaseModel):
-    login: str = Field(..., example='10')
-    id: int = Field(..., example=10)
-    residence: str = Field(..., example='Yaroslavl, st/ Syrkova')
-
-
-class Artist(BaseModel):
-    login: str = Field(..., example='10')
-    id: int = Field(..., example=10)
-    style: Literal[
-        'realism', 'impressionism', 'fauvism', 'modern',
-        'expressionism', 'cubism', 'futurism', 'abstractionism',
-        'dadaism', 'pop-art'
-    ] = Field(..., example='realism')
-
-
-class Session(BaseModel):
-    login: str = Field(..., example='10')
-    session_id: str = Field(..., example='f376407b-2b01-47b2-9e29-892cf7ea1606')
-
+from typing import List, Optional, Literal
 
 sessions_db = []
-
 # Пример базы данных
 artists_db = [
     Artist(login='artist1', id=1, style='realism'),
     Artist(login='artist2', id=2, style='impressionism'),
     Artist(login='artist3', id=3, style='modern'),
 ]
-
 vouchers_db = [
     Voucher(id=1, customer='visitor1', executor='artist1', amount_pictures=3, price=100,
             description="3 pictures for 100$", status='placed', style='realism'),
@@ -137,7 +64,6 @@ vouchers_db = [
     Voucher(id=5, customer='visitor2', executor='artist2', amount_pictures=5, price=200,
             description="5 pictures for 200$", status='in work', style='impressionism'),
 ]
-
 accounts_db = [
     Account(login='artist1', password='password123', surName='Smith', firstName='Alice', patronymic='Marie',
             email='alice@email.com', type_role='artist', phone='1234567890', sex='f', date_of_birth='1995-05-15'),
@@ -151,35 +77,11 @@ accounts_db = [
             email='lily@email.com', type_role='visitor', phone='1234567890', sex='f', date_of_birth='1995-05-15'),
     Account(login='visitor3', password='password456', surName='Gate', firstName='Artur', patronymic='Marie',
             email='artur@email.com', type_role='visitor', phone='0987654321', sex='m', date_of_birth='1990-10-10'),
-
 ]
-
 visitors_db = [
     Visitor(login='visitor1', id=1, residence='Moscow, Red Square'),
     Visitor(login='visitor2', id=2, residence='Saint Petersburg, Nevsky Prospect'),
     Visitor(login='visitor3', id=3, residence='Yaroslavl, st/ Syrkova'),
-]
-
-
-def api_key():
-    return "api_key"
-
-
-def artist_vouchers_auth():
-    return ["write:Artists", "read:Artists", "write:Visitors", "read:Visitors"]
-
-
-AllowedStyles = Literal[
-    "realism",
-    "impressionism",
-    "fauvism",
-    "modern",
-    "expressionism",
-    "cubism",
-    "futurism",
-    "abstractionism",
-    "dadaism",
-    "pop-art"
 ]
 
 
@@ -188,22 +90,11 @@ async def update_artist(
         new_style: AllowedStyles,
         session_id: str
 ):
-    connect_db()
-    login = find_login(session_id)
-
-    # Ищем артиста по login
-    existing_artist = next((artist for artist in artists_db if artist.login == login), None)
-
-    if existing_artist is None:
-        raise HTTPException(status_code=404, detail="Denied, you are not artist")
-
-    # Обновляем место жительства
-    existing_artist.style = new_style
-    return existing_artist
+    return write_artist(session_id, new_style)
 
 
 @app.get("/Artists/list/", response_model=List[Artist], tags=["Artists"])
-async def find_artists_by_style(
+async def get_artists_list(
         session_id: str,
         style_list: Optional[List[str]] = Query(
             default=None,
@@ -223,47 +114,15 @@ async def find_artists_by_style(
             title="Style"
         ),
 ):
-    connect_db()
-    login = find_login(session_id)
-
-    existing_styles = list()
-    if style_list is not None:
-        existing_styles = list(set(style_list) & set(get_args(AllowedStyles)))
-
-    if style_list is not None and not existing_styles:
-        raise HTTPException(status_code=400, detail="Style not found in AllowedStyles")
-
-    # Если стиль не указан, возвращаем всех артистов
-    if style_list is None:
-        filtered_artists = artists_db
-    else:
-        # Фильтруем артистов на основе предоставленных стилей
-        filtered_artists = [artist for artist in artists_db if artist.style in style_list]
-
-    if not filtered_artists:
-        raise HTTPException(status_code=404, detail="Artists with such style not found")
-
-    return filtered_artists
+    return find_all_artists(session_id, style_list)
 
 
 @app.get("/Artists/", response_model=Artist, tags=["Artists"])
-async def get_artist_by_id(
+async def get_artist(
         session_id: str,
         artist_id: int = Path(..., description="ID of Artists to return")
 ):
-    connect_db()
-    login = find_login(session_id)
-    rootLogger.debug(f"Find with artist_id: `{artist_id}`")
-    artist = next((artist for artist in artists_db if artist.id == artist_id), None)
-    rootLogger.debug(f"Found artist: `{artist}`")
-
-    if artist is None:
-        raise HTTPException(status_code=404, detail="Artists not found")
-
-    return artist
-
-
-#####################################################################################
+    return find_artist(session_id, artist_id)
 
 
 @app.post("/Vouchers", response_model=Voucher, tags=["Vouchers"])
@@ -271,32 +130,7 @@ async def place_voucher(
         session_id: str,
         voucher: Voucher
 ):
-    connect_db()
-    login = find_login(session_id)
-    existing_visitor = next((visitor for visitor in visitors_db if visitor.login == login), None)
-
-    if existing_visitor is None:
-        raise HTTPException(status_code=404, detail="Visitor not found")
-
-    # Получаем максимальный ID для нового ваучера
-    max_id = max((v.id for v in vouchers_db), default=0)
-
-    # Создаем новый предзаказ
-    new_voucher = Voucher(
-        id=max_id + 1,
-        customer=login,  # Используем логин из куки
-        executor="",
-        amount_pictures=voucher.amount_pictures,
-        price=voucher.price,
-        description=voucher.description,
-        status="placed",
-        style=voucher.style
-    )
-
-    # Добавляем новый предзаказ в базу данных
-    vouchers_db.append(new_voucher)
-
-    return new_voucher
+    return create_voucher(session_id, voucher)
 
 
 @app.get("/Vouchers/list", response_model=List[Voucher], tags=["Vouchers"])
@@ -330,46 +164,15 @@ async def find_vouchers(
             title="Status"
         )
 ):
-    connect_db()
-    login = find_login(session_id)
-    if not vouchers_db:
-        raise HTTPException(status_code=404, detail="Vouchers not exists, please add someone")
-    # Если ни стиль, ни статус не указаны, возвращаем все ваучеры
-    if style is None and status is None:
-        return vouchers_db
-
-    # Фильтруем ваучеры по стилю и статусу
-
-    filtered_vouchers = [
-        voucher for voucher in vouchers_db
-        if (
-                ((style is None) or (style is not None and voucher.style in style))
-                and
-                ((status is None) or (status is not None and voucher.status in status))
-
-        )
-    ]
-
-    # Проверяем, есть ли отфильтрованные ваучеры
-    if not filtered_vouchers:
-        raise HTTPException(status_code=404, detail="Vouchers not found")
-
-    return filtered_vouchers
+    return find_all_vouchers(session_id, style, status)
 
 
 @app.get("/Vouchers", response_model=Voucher, tags=["Vouchers"])
-async def get_voucher_by_id(
+async def get_voucher(
         session_id: str,
         voucher_id: int = Path(..., description="ID of Vouchers to return")
 ):
-    connect_db()
-    login = find_login(session_id)
-    voucher = next((v for v in vouchers_db if v.id == voucher_id), None)
-
-    if voucher is None:
-        raise HTTPException(status_code=404, detail="Voucher not found")
-
-    return voucher
+    return find_voucher(session_id, voucher_id)
 
 
 AllowedStatus = Literal[
@@ -385,238 +188,50 @@ async def update_voucher(
         voucher_id: int,
         new_status: AllowedStatus
 ):
-    connect_db()
-    login = find_login(session_id)
-    # Ищем художника по login
-    existing_artist = next((artist for artist in artists_db if artist.login == login), None)
-
-    if existing_artist is None:
-        raise HTTPException(status_code=404, detail="Denied, you are not artist")
-
-    # Ищем ваучер
-    existing_voucher = next((v for v in vouchers_db if v.id == voucher_id), None)
-
-    if existing_voucher is None:
-        raise HTTPException(status_code=404, detail="Voucher not found")
-
-    if (existing_voucher.status != 'placed' and existing_voucher.executor != login):
-        raise HTTPException(status_code=403, detail="Access denied: You do not own this voucher record")
-
-    if (existing_voucher.status == 'placed' and existing_voucher.executor == ""):
-        existing_voucher.executor = login
-
-    existing_voucher.status = new_status  # Обновляем только статус
-    return existing_voucher
+    return write_voucher(session_id, voucher_id, new_status)
 
 
 @app.delete("/Vouchers", tags=["Vouchers"])
 async def delete_voucher(
         session_id: str,
-        vouchers_id: int
+        voucher_id: int
 ):
-    connect_db()
-    login = find_login(session_id)
-    # Ищем посетителя по ID
-    existing_visitor = next((visitor for visitor in visitors_db if visitor.login == login), None)
-
-    if existing_visitor is None:
-        raise HTTPException(status_code=404, detail="Denied, you are not visitor")
-
-    # Проверяем, что логин пользователя совпадает с владельцем записи
-    if existing_visitor.login != login:
-        raise HTTPException(status_code=403, detail="Access denied: You do not own this voucher")
-
-    # Находим индекс ваучера с указанным идентификатором
-    voucher_index = next((index for index, voucher in enumerate(vouchers_db) if voucher.id == vouchers_id), None)
-
-    # Если ваучер не найден, возвращаем 404
-    if voucher_index is None:
-        raise HTTPException(status_code=404, detail="Voucher not found")
-
-    # Удаляем ваучер из базы данных
-    vouchers_db.pop(voucher_index)
-
+    remove_voucher(session_id, voucher_id)
     return {"detail": "Vouchers deleted successfully"}
-
-
-######################################################################################################
-
-
-AllowedRoles = Literal[
-    "visitor",
-    "artist"
-]
 
 
 @app.post("/Accounts", response_model=Account, tags=["Accounts"])
 async def place_account(
         account: Account,
 ):
-    if any(v.login == account.login for v in accounts_db):
-        raise HTTPException(status_code=400, detail="Error login already exists.")
-
-    # Создаем новый
-    new_account = Account(
-        login=account.login,
-        password=account.password,
-        surName=account.surName,
-        firstName=account.firstName,
-        patronymic=account.patronymic,
-        email=account.email,
-        type_role=account.type_role,
-        phone=account.phone,
-        sex=account.sex,
-        date_of_birth=account.date_of_birth
-    )
-
-    if new_account.surName is None:
-        new_account.surName = ''
-    if new_account.firstName is None:
-        new_account.firstName = ''
-    if new_account.patronymic is None:
-        new_account.patronymic = ''
-    if new_account.email is None:
-        new_account.email = ''
-    if new_account.type_role is None:
-        new_account.type_role = ''
-    if new_account.phone is None:
-        new_account.phone = ''
-    if new_account.sex is None:
-        new_account.sex = ''
-    if new_account.date_of_birth is None:
-        new_account.date_of_birth = ''
-    """
-    connection=None
-    try:        
-        connection = psycopg2.connect(user="postgres",
-                                    password="root",
-                                    host="127.0.0.1",
-                                    port="5433",
-                                    database="api")
-        
-        cursor = connection.cursor()
-        
-        # Print PostgreSQL Connection properties
-        rootLogger.debug("Connection established")
-        cursor.execute(
-            'INSERT INTO api.account(login,password,sur_name,first_name,patronymic,email,type_role,phone,sex,date_of_birth)VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
-            (
-                new_account.login, 
-                new_account.password, 
-                new_account.surName, 
-                new_account.firstName, 
-                new_account.patronymic, 
-                new_account.email, 
-                new_account.type_role, 
-                new_account.phone,
-                new_account.sex,
-                new_account.date_of_birth
-            )
-        )
-    
-        connection.commit()        
-    except (Exception, psycopg2.Error) as error :
-        print("Error while connecting to PostgreSQL", error)
-    finally:
-        #closing database connection.
-            if(connection):
-                cursor.close()
-                connection.close()
-                rootLogger.debug("PostgreSQL connection is closed")
-    """
-
-    if account.type_role == "artist":
-        new_artist = Artist(
-            id=max((voucher.id for voucher in artists_db), default=0) + 1,
-            login=account.login,
-            style="realism"
-        )
-        artists_db.append(new_artist)
-
-    if account.type_role == "visitor":
-        new_visitor = Visitor(
-            id=max((voucher.id for voucher in visitors_db), default=0) + 1,
-            login=account.login,
-            residence="None"
-        )
-        visitors_db.append(new_visitor)
-
-    # Добавляем новую учётную запись в базу данных
-    accounts_db.append(new_account)
-
-    return new_account
+    return create_account(account)
 
 
-# Имитация хранилища для текущего пользователя (для примера)
-current_user = None
-
-
-class Credentials(BaseModel):
-    login: str = Field(..., example='login')
-    password: str = Field(..., example='password')
-
-
-class Cookies(BaseModel):
-    login: str | None = None
+from fastapi.responses import JSONResponse
 
 
 @app.post("/Accounts/log_in", tags=["Accounts"])
 async def log_in(
         credentials: Credentials
 ):
-    connect_db()
-    for account in accounts_db:
-        if account.login == credentials.login and account.password == credentials.password:
-            session_id = str(uuid.uuid4())
-
-            session = Session(session_id=session_id, login=credentials.login)
-            sessions_db.append(session)
-
-            rootLogger.debug(f"session_id: `{session_id}`, login: `{account.login}`")
-
-            content = {
-                "message": "Login successful",
-                "session_id": session_id
-            }
-
-            response = JSONResponse(content=content)
-
-            return response
-
-    raise HTTPException(status_code=400, detail="Invalid login/password supplied")
+    session_id = create_session(credentials)
+    rootLogger.debug(f"session_id: `{session_id}`, login: `{credentials.login}`")
+    content = {
+        "message": "Login successful",
+        "session_id": session_id
+    }
+    response = JSONResponse(content=content)
+    return response
 
 
 @app.delete("/Accounts/log_out", tags=["Accounts"])
-async def logout(
+async def log_out(
         session_id: str = ''
 ):
-    rootLogger.debug(f"session_id = `{session_id}` ", )
-    session = next((session for session in sessions_db if session.session_id == session_id), None)
-    if session is None:
-        rootLogger.debug(f"Session not found ", )
-        raise HTTPException(status_code=401, detail="No user is currently logged in")
-
-    if session is not None:
-        rootLogger.debug(f"Session found login:`{session.login}`, session id:`{session.session_id}`", )
-        sessions_db.remove(session)
-        content = {"message": "Logout successful"}
-        response = JSONResponse(content=content)
-        return response
-
-
-def find_login(session_id: str) -> str:
-    rootLogger.debug(f"session_id = `{session_id}` ", )
-    session = next((session for session in sessions_db if session.session_id == session_id), None)
-    if session is None:
-        rootLogger.debug(f"Session not found ", )
-        raise HTTPException(status_code=403, detail="User not logged in")
-
-    login = ''
-    if session is not None:
-        rootLogger.debug(f"Session found login:`{session.login}`, session id:`{session.session_id}`", )
-        login = session.login
-
-    return login
+    remove_session(session_id)
+    content = {"message": "Logout successful"}
+    response = JSONResponse(content=content)
+    return response
 
 
 @app.get("/Accounts/list", response_model=List[Account], tags=["Accounts"])
@@ -625,47 +240,7 @@ async def find_accounts(
         first_name: Optional[str] = Query(None, description="The first name to search for."),
         last_name: Optional[str] = Query(None, description="The last name to search for."),
 ):
-    connect_db()
-    login = find_login(session_id)
-
-    results = []
-    rootLogger.debug(
-        f"Find account with first_name: '{first_name}' and last_name `{last_name}`"
-    )
-
-    if (first_name is None or first_name == '') and (last_name is None or last_name == ''):
-        results = accounts_db
-
-    if first_name is not None or last_name is not None:
-        for account in accounts_db:
-            rootLogger.debug(
-                f"first_name: '{first_name}', account.first_name `{account.firstName}`, last_name `{last_name}`, account.surName `{account.surName}`"
-            )
-            if (
-                    (first_name
-                     and (last_name is None or last_name == '')
-                     and account.firstName.lower() == first_name.lower()
-                    ) or (
-                    last_name
-                    and (first_name is None or first_name == '')
-                    and account.surName.lower() == last_name.lower()
-            )
-                    or (
-                    first_name and first_name != ''
-                    and last_name and last_name != ''
-                    and account.firstName.lower() == first_name.lower()
-                    and account.surName.lower() == last_name.lower()
-            )
-            ):
-                rootLogger.debug('Match !')
-                results.append(account)
-            else:
-                rootLogger.debug('Not match !')
-
-        if not results:
-            raise HTTPException(status_code=404, detail="Accounts not found")
-
-    return results
+    return find_all_accounts(session_id, first_name, last_name)
 
 
 @app.put("/Accounts", tags=["Accounts"])
@@ -674,67 +249,16 @@ async def update_account_name(
         new_first_name: str = Query(..., description="New first name for the account"),
         new_last_name: str = Query(..., description="New last name for the account"),
 ):
-    connect_db()
-    login = find_login(session_id)
-
-    # Поиск аккаунта по логину
-    account_to_update = next((account for account in accounts_db if account.login == login), None)
-
-    if account_to_update is None:
-        raise HTTPException(status_code=404, detail="Account not found")
-
-    # Обновление имени и фамилии аккаунта
-    account_to_update.firstName = new_first_name
-    account_to_update.surName = new_last_name
-
+    write_account(session_id, new_first_name, new_last_name)
     return {"message": "Account name updated successfully"}
 
 
 @app.delete("/Accounts", tags=["Accounts"])
 async def delete_account(
         session_id: str,
-        ##login: str = Cookie(None)
 ):
-    connect_db()
-    login = find_login(session_id)
-
-    # Поиск аккаунта по логину
-    account_to_delete = next((account for account in accounts_db if account.login == login), None)
-
-    if account_to_delete is None:
-        raise HTTPException(status_code=404, detail="Account not found")
-
-    # Удаляем аккаунт из соответствующей базы данных в зависимости от роли
-
-    if account_to_delete.type_role == "artist":
-        artist_db_index = next((index for index, a in enumerate(artists_db) if a.login == login), None)
-
-        # Если художник не найден, возвращаем 404
-        if artist_db_index is None:
-            raise HTTPException(status_code=404, detail="Artist not found")
-
-        # Удаляем художник из базы данных
-        artists_db.pop(artist_db_index)
-
-    if account_to_delete.type_role == "visitor":
-        visitor_db_index = next((index for index, a in enumerate(visitors_db) if a.login == login), None)
-
-        # Если посетитель не найден, возвращаем 404
-        if visitor_db_index is None:
-            raise HTTPException(status_code=404, detail="Visitor not found")
-
-        # Удаляем посетителя из базы данных
-        visitors_db.pop(visitor_db_index)
-
-    # Удаляем аккаунт из базы данных
-    accounts_db.remove(account_to_delete)
-
-    await logout(session_id)
-
+    remove_account(session_id)
     return {"message": "Account deleted successfully"}
-
-
-###########################################################################################
 
 
 @app.put("/Visitors", response_model=Visitor, tags=["Visitors"])
@@ -742,42 +266,203 @@ async def update_visitor(
         session_id: str,
         new_residence: str,
 ):
-    connect_db()
-    login = find_login(session_id)
-
-    # Ищем посетителя по ID
-    existing_visitor = next((visitor for visitor in visitors_db if visitor.login == login), None)
-
-    if existing_visitor is None:
-        raise HTTPException(status_code=404, detail="Denied, you are not visitor")
-
-    # Обновляем место жительства
-    existing_visitor.residence = new_residence
-    return existing_visitor
+    return write_visitor(session_id, new_residence)
 
 
-@app.get("/Visitors/{visitor_id}", response_model=Visitor, tags=["Visitors"])
-async def get_visitor_by_id(
+@app.get("/Visitors", response_model=Visitor, tags=["Visitors"])
+async def get_visitor(
         session_id: str,
         visitor_id: int = Path(..., description="ID of Visitor to return"),
 ):
-    connect_db()
-    login = find_login(session_id)
-    # Ищем посетителя по ID
-    visitor = next((visitor for visitor in visitors_db if visitor.id == visitor_id), None)
-
-    if visitor is None:
-        raise HTTPException(status_code=404, detail="Visitor not found")
-
-    return visitor
+    return find_visitor(session_id, visitor_id)
 
 
 @app.get("/Visitors/list", response_model=List[Visitor], tags=["Visitors"])
 async def get_all_visitors(
         session_id: str,
 ):
-    connect_db()
-    login = find_login(session_id)
+    return find_all_visitors(session_id)
 
-    # Возвращаем всех посетителей
-    return visitors_db  # Предполагается, что visitors_db - это список всех посетителей
+
+import strawberry
+from strawberry.fastapi import GraphQLRouter
+
+
+@strawberry.experimental.pydantic.type(model=Account, all_fields=True)
+class AccountType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=Visitor, all_fields=True)
+class VisitorType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=Artist, all_fields=True)
+class ArtistType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=Voucher, all_fields=True)
+class VoucherType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=Credentials, all_fields=True)
+class CredentialsType:
+    pass
+
+
+@strawberry.type
+class GraphQLQuery:
+    @strawberry.field
+    def accounts(
+            self,
+            session_id: str,
+            first_name: str,
+            last_name: str
+    ) -> List[
+        AccountType]:
+        return find_all_accounts(session_id, first_name, last_name)
+
+    @strawberry.field
+    def visitor(self, session_id: str, visitor_id: int) -> VisitorType:
+        return find_visitor(session_id, visitor_id)
+
+    @strawberry.field
+    def visitors(self, session_id: str) -> List[VisitorType]:
+        return find_all_visitors(session_id)
+
+    @strawberry.field
+    def artist(self, session_id: str, artist_id: int) -> ArtistType:
+        return find_artist(session_id, artist_id)
+
+    @strawberry.field
+    def artists(
+            self,
+            session_id: str,
+            style_list: List[str]
+    ) -> List[ArtistType]:
+        return find_all_artists(session_id, style_list)
+
+    @strawberry.field
+    def voucher(self, session_id: str, voucher_id: int) -> VoucherType:
+        return find_voucher(session_id, voucher_id)
+
+    @strawberry.field
+    def vouchers(
+            self,
+            session_id: str,
+            style: List[str],
+            status: List[str]
+    ) -> List[VoucherType]:
+        return find_all_vouchers(session_id, style, status)
+
+
+@strawberry.type
+class GraphQLMutation:
+    @strawberry.mutation
+    def add_account(
+            self,
+            account: AccountType,
+    ) -> AccountType:
+        new_account = Account(
+            login=account.login,
+            password=account.password,
+            surName=account.surName,
+            firstName=account.firstName,
+            patronymic=account.patronymic,
+            email=account.email,
+            type_role=account.type_role,
+            phone=account.phone,
+            sex=account.sex,
+            date_of_birth=account.date_of_birth
+        )
+        return create_account(new_account)
+
+    @strawberry.mutation
+    def update_account(
+            self,
+            session_id: str,
+            new_first_name: str,
+            new_last_name: str,
+    ) -> str:
+        return write_account(session_id, new_first_name, new_last_name)
+
+    @strawberry.mutation
+    async def delete_account(
+            self,
+            session_id: str,
+    ) -> str:
+        return remove_account(session_id)
+
+    @strawberry.mutation
+    def update_visitor(
+            self, session_id: str,
+            new_residence: str,
+    ) -> VisitorType:
+        return write_visitor(session_id, new_residence)
+
+    @strawberry.mutation
+    def update_artist(
+            self, session_id: str,
+            new_style: str,
+    ) -> VisitorType:
+        return write_artist(session_id, new_style)
+
+    @strawberry.mutation
+    def add_voucher(
+            self, session_id: str,
+            voucher: VoucherType,
+    ) -> VoucherType:
+        new_voucher = Voucher(
+            amount_pictures=voucher.amount_pictures,
+            price=voucher.price,
+            description=voucher.description,
+            style=voucher.style
+        )
+        return create_voucher(session_id, new_voucher)
+
+    @strawberry.mutation
+    def update_voucher(
+            self,
+            session_id: str,
+            voucher_id: int,
+            new_status: str,
+    ) -> VoucherType:
+        return write_voucher(session_id, voucher_id, new_status)
+
+    @strawberry.mutation
+    def delete_voucher(
+            self,
+            session_id: str,
+            voucher_id: int,
+    ) -> VoucherType:
+        return remove_voucher(session_id, voucher_id)
+
+    @strawberry.mutation
+    def log_in(
+            self,
+            credentials_input: CredentialsType,
+    ) -> str:
+        credentials = Credentials(
+            login=credentials_input.login,
+            password=credentials_input.password
+        )
+        return create_session(credentials)
+
+    @strawberry.mutation
+    def log_out(
+            self,
+            session_id: Optional[str] = None,
+    ) -> str:
+        return remove_session(session_id)
+
+
+schema = strawberry.Schema(GraphQLQuery, GraphQLMutation)
+
+# schema = strawberry.Schema(GraphQLQuery)
+
+
+graphql_app = GraphQLRouter(schema)
+app.include_router(graphql_app, prefix="/graphql")
