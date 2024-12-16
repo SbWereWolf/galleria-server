@@ -2,7 +2,8 @@ from typing import Optional
 
 import strawberry
 
-from GqlObjectTypes import AccountType, VisitorType, VoucherType
+from GqlObjectTypes import AccountType, VisitorType, VoucherType \
+    , ArtistType
 from models import Account, create_account, write_account, \
     remove_account, write_visitor, write_artist, Voucher, \
     create_voucher, write_voucher, remove_voucher, Credentials, \
@@ -85,7 +86,7 @@ class GraphQLMutation:
     def update_artist(
             self, session_id: str,
             new_style: str,
-    ) -> VisitorType:
+    ) -> ArtistType:
         return write_artist(session_id, new_style)
 
     @strawberry.mutation
@@ -115,7 +116,7 @@ class GraphQLMutation:
             self,
             session_id: str,
             voucher_id: int,
-    ) -> VoucherType:
+    ) -> str:
         return remove_voucher(session_id, voucher_id)
 
     @strawberry.mutation
