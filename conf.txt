@@ -1,4 +1,11 @@
+python -m venv ./venv
+
 .\venv\Scripts\Activate
-deactivate
+
+pip install -r ./requirements.txt
 
 uvicorn main:app --reload --host 127.0.0.1 --port 8001
+
+cd .\venv\Scripts\
+deactivate
+cd ../..
