@@ -3,3 +3,5 @@ uvicorn
 pydantic
 psycopg[binary]
 strawberry-graphql[fastapi]
+datetime
+PyJWT

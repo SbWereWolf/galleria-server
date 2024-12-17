@@ -1,4 +1,7 @@
 import logging
+from datetime import datetime, timedelta
+
+import jwt
 
 rootLogger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
@@ -56,21 +59,66 @@ class Credentials(BaseModel):
     password: str = Field(..., example='password')
 
 
-import uuid
-
-
 def create_session(credentials: Credentials):
-    connect_db()
     session_id = ""
     for account in accounts_db:
-        if account.login == credentials.login and account.password == credentials.password:
-            session_id = str(uuid.uuid4())
-            session = Session(session_id=session_id, login=credentials.login)
+        if (account.login == credentials.login
+                and account.password == credentials.password):
+            account_id = find_account_id(account)
+            session_id = create_session_token(
+                data=
+                {
+                    "sub": credentials.login,
+                    "role": account.type_role,
+                    "id": account_id,
+                })
+
+            session = Session(
+                session_id=session_id,
+                login=credentials.login
+            )
             sessions_db.append(session)
             break
     if session_id == "":
-        raise HTTPException(status_code=400, detail="Invalid login/password supplied")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid login/password supplied"
+        )
     return session_id
+
+
+# Конфигурация JWT
+SECRET_KEY = \
+    "a493003e3c0ef4ee0f6ce2dc2363eed49130b7ab54a77c8c12bd5016c9c2e540"
+ALGORITHM = "HS256"
+
+
+def create_session_token(
+        data: dict,
+        expires_delta: timedelta = timedelta(hours=1)
+):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(
+        to_encode, SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+    return encoded_jwt
+
+
+def find_account_id(account):
+    account_id = ""
+
+    artist = find_artist_by_account(account)
+    if artist is not None:
+        account_id = artist.id
+
+    visitor = find_visitor_by_account(account)
+    if visitor is not None:
+        account_id = visitor.id
+
+    return account_id
 
 
 def find_login(session_id: str) -> str:
@@ -86,11 +134,32 @@ def find_login(session_id: str) -> str:
     return login
 
 
+def my_login_and_role(token: str):
+    account = find_account_by_token(token)
+    return {
+        "username": account.login,
+        "role": account.type_role
+    }
+
+
+def decode_token(token) -> str:
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    login: str = payload.get("sub")
+
+    if login is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return login
+
+
 def remove_session(session_id: str = ''):
     rootLogger.debug(f"session_id = `{session_id}` ", )
     session = next((session for session in sessions_db if session.session_id == session_id), None)
     if session is None:
-        rootLogger.debug(f"Session not found ", )
+        rootLogger.debug("Session not found ")
         raise HTTPException(status_code=401, detail="No user is currently logged in")
     if session is not None:
         rootLogger.debug(f"Session found login:`{session.login}`, session id:`{session.session_id}`", )
@@ -99,6 +168,7 @@ def remove_session(session_id: str = ''):
 
 
 class Account(BaseModel):
+    id: int = Field(..., example=10)
     login: str = Field(..., example='10')
     password: str = Field(..., example='theAccounts')
     surName: str = Field(..., example='Green')
@@ -109,21 +179,40 @@ class Account(BaseModel):
     phone: str = Field(..., example='12345')
     sex: str = Field(..., example='m')
     date_of_birth: str = Field(..., example='2000-01-01')  # формат даты
+    residence: str = Field(..., example='Yaroslavl, st/ Syrkova')
 
 
 accounts_db = [
-    Account(login='artist1', password='password123', surName='Smith', firstName='Alice', patronymic='Marie',
-            email='alice@email.com', type_role='artist', phone='1234567890', sex='f', date_of_birth='1995-05-15'),
-    Account(login='artist2', password='password456', surName='Johnson', firstName='Bob', patronymic='Marie',
-            email='bob@email.com', type_role='artist', phone='0987654321', sex='m', date_of_birth='1990-10-10'),
-    Account(login='artist3', password='password123', surName='Dean', firstName='Amelia', patronymic='Marie',
-            email='amelia@email.com', type_role='artist', phone='1234567890', sex='f', date_of_birth='1995-05-15'),
-    Account(login='visitor1', password='password456', surName='Black', firstName='Adam', patronymic='Marie',
-            email='adam@email.com', type_role='visitor', phone='0987654321', sex='m', date_of_birth='1990-10-10'),
-    Account(login='visitor2', password='password123', surName='Fisher', firstName='Lily', patronymic='Marie',
-            email='lily@email.com', type_role='visitor', phone='1234567890', sex='f', date_of_birth='1995-05-15'),
-    Account(login='visitor3', password='password456', surName='Gate', firstName='Artur', patronymic='Marie',
-            email='artur@email.com', type_role='visitor', phone='0987654321', sex='m', date_of_birth='1990-10-10'),
+    Account(login='artist1', password='password123', surName='Smith',
+            firstName='Alice', patronymic='Marie',
+            email='alice@email.com', type_role='artist',
+            phone='1234567890', sex='f', date_of_birth='1995-05-15',
+            residence='', id=0),
+    Account(login='artist2', password='password456',
+            surName='Johnson', firstName='Bob', patronymic='Marie',
+            email='bob@email.com', type_role='artist',
+            phone='0987654321', sex='m', date_of_birth='1990-10-10',
+            residence='', id=0),
+    Account(login='artist3', password='password123', surName='Dean',
+            firstName='Amelia', patronymic='Marie',
+            email='amelia@email.com', type_role='artist',
+            phone='1234567890', sex='f', date_of_birth='1995-05-15',
+            residence='', id=0),
+    Account(login='visitor1', password='password456', surName='Black',
+            firstName='Adam', patronymic='Marie',
+            email='adam@email.com', type_role='visitor',
+            phone='0987654321', sex='m', date_of_birth='1990-10-10',
+            residence='', id=0),
+    Account(login='visitor2', password='password123',
+            surName='Fisher', firstName='Lily', patronymic='Marie',
+            email='lily@email.com', type_role='visitor',
+            phone='1234567890', sex='f', date_of_birth='1995-05-15',
+            residence='', id=0),
+    Account(login='visitor3', password='password456', surName='Gate',
+            firstName='Artur', patronymic='Marie',
+            email='artur@email.com', type_role='visitor',
+            phone='0987654321', sex='m', date_of_birth='1990-10-10',
+            residence='', id=0),
 ]
 
 
@@ -212,6 +301,22 @@ def create_account(account: Account):
     # Добавляем новую учётную запись в базу данных
     accounts_db.append(new_account)
     return new_account
+
+
+def find_account_by_token(token) -> Account:
+    login = decode_token(token)
+    account = next(
+        (
+            account for account in accounts_db
+            if account.login == login)
+        , None
+    )
+    if account is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Account with login {login} is not found"
+        )
+    return account
 
 
 def find_all_accounts(
@@ -306,6 +411,10 @@ AllowedStyles = Literal[
 ]
 
 
+def find_all_styles():
+    return get_args(AllowedStyles)
+
+
 class Artist(BaseModel):
     login: str = Field(..., example='10')
     id: int = Field(..., example=10)
@@ -318,6 +427,26 @@ artists_db = [
     Artist(login='artist2', id=2, style='impressionism'),
     Artist(login='artist3', id=3, style='modern'),
 ]
+
+
+def find_artist_by_account(account) -> Artist | None:
+    existing_artist = None
+    if account.type_role == "artist":
+        existing_artist = next(
+            (
+                artist for artist in artists_db
+                if artist.login == account.login
+            ),
+            None
+        )
+        if existing_artist is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"{account.login} is artist,"
+                       + " but not found in artists db"
+            )
+
+    return existing_artist
 
 
 def find_all_artists(
@@ -352,6 +481,24 @@ def find_artist(
     return artist
 
 
+def find_artist_style(
+        session_id: str,
+        login: str
+):
+    account = find_account_by_token(session_id)
+    if account.login != login:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    artist = find_artist_by_account(account)
+    if artist is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"{account.login} is not artist"
+        )
+
+    return [artist.style]
+
+
 def write_artist(session_id: str, new_style: str):
     connect_db()
     login = find_login(session_id)
@@ -371,10 +518,47 @@ class Visitor(BaseModel):
 
 
 visitors_db = [
-    Visitor(login='visitor1', id=1, residence='Moscow, Red Square'),
-    Visitor(login='visitor2', id=2, residence='Saint Petersburg, Nevsky Prospect'),
-    Visitor(login='visitor3', id=3, residence='Yaroslavl, st/ Syrkova'),
+    Visitor(login='visitor1', id=4, residence='Moscow, Red Square'),
+    Visitor(login='visitor2', id=5,
+            residence='Saint Petersburg, Nevsky Prospect'),
+    Visitor(login='visitor3', id=6,
+            residence='Yaroslavl, st/ Syrkova'),
 ]
+
+
+def find_visitor_by_account(account) -> Visitor | None:
+    existing_visitor = None
+    if account.type_role == "visitor":
+        existing_visitor = next(
+            (
+                visitor for visitor in visitors_db
+                if visitor.login == account.login
+            ),
+            None
+        )
+        if existing_visitor is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"{account.login} is visitor,"
+                       + " but not found in visitors db"
+            )
+
+    return existing_visitor
+
+
+def my_account(token: str) -> Account:
+    account = find_account_by_token(token)
+
+    visitor = find_visitor_by_account(account)
+    if visitor is not None:
+        account.id = visitor.id
+        account.residence = visitor.residence
+
+    artist = find_artist_by_account(account)
+    if artist is not None:
+        account.id = artist.id
+
+    return account
 
 
 def find_visitor(

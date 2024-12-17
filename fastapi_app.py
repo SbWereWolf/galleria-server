@@ -1,11 +1,12 @@
-from fastapi import Query, Path, FastAPI
+from fastapi import Query, Path, FastAPI, Request
 
 from models import find_all_artists, find_artist, find_all_vouchers, \
     find_voucher, find_all_accounts, find_visitor, find_all_visitors, \
     Artist, Voucher, Account, Visitor, Credentials, AllowedStyles, \
     write_visitor, write_artist, write_voucher, write_account, \
     create_voucher, remove_voucher, create_account, remove_account, \
-    create_session, remove_session
+    create_session, remove_session, my_login_and_role, my_account, \
+    find_artist_style, find_all_styles
 
 app = FastAPI(
     title="Картины на заказ",
@@ -59,6 +60,27 @@ async def get_artist(
         artist_id: int = Path(..., description="ID of Artists to return")
 ):
     return find_artist(session_id, artist_id)
+
+
+@app.get(
+    "/Artists/styles/",
+    tags=["Artists"]
+)
+async def get_all_styles():
+    return {"styles": find_all_styles()}
+
+
+@app.get(
+    "/Artists/{login}/styles/",
+    tags=["Artists"]
+)
+async def get_artist_style(
+        request: Request,
+        login: str,
+):
+    token = extract_bearer(request)
+
+    return {"styles": find_artist_style(token, login)}
 
 
 @app.post("/Vouchers", response_model=Voucher, tags=["Vouchers"])
@@ -157,6 +179,48 @@ async def log_in(
     }
     response = JSONResponse(content=content)
     return response
+
+
+@app.get("/Accounts/me/", tags=["Accounts"])
+async def me(request: Request):
+    token = extract_bearer(request)
+    content = my_login_and_role(token)
+
+    response = JSONResponse(content=content)
+
+    return response
+
+
+@app.get("/Accounts/me/about/", tags=["Accounts"])
+async def about_me(request: Request):
+    token = extract_bearer(request)
+    account = my_account(token)
+
+    content = {
+        "id": account.id,
+        "username": account.login,
+        "first_name": account.firstName,
+        "last_name": account.surName,
+        "middle_name": account.patronymic,
+        "birth_date": account.date_of_birth,
+        "phone_number": account.phone,
+        "email": account.email,
+        "gender": account.sex,
+        "role": account.type_role,
+        "adres": account.residence or "",  # Если адрес пустой, возвращаем пустую строку
+        "avatar_url": "",  # Возвращаем URL аватарки, если оно есть
+    }
+
+    response = JSONResponse(content=content)
+
+    return response
+
+
+def extract_bearer(request):
+    headers = request.headers
+    bearer = headers.get('Authorization')  # Bearer YourTokenHere
+    token = bearer.split()[1]  # YourTokenHere
+    return token
 
 
 @app.delete("/Accounts/log_out", tags=["Accounts"])
