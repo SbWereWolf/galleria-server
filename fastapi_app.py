@@ -6,7 +6,7 @@ from models import find_all_artists, find_artist, find_all_vouchers, \
     write_visitor, write_artist, write_voucher, write_account, \
     create_voucher, remove_voucher, create_account, remove_account, \
     create_session, remove_session, my_login_and_role, my_account, \
-    find_artist_style, find_all_styles
+    find_artist_style, find_all_styles, find_account
 
 app = FastAPI(
     title="Картины на заказ",
@@ -32,7 +32,8 @@ async def update_artist(
 
 @app.get("/Artists/list/", response_model=List[Artist], tags=["Artists"])
 async def get_artists_list(
-        session_id: str,
+        request: Request,
+        session_id: Optional[str],
         style_list: Optional[List[str]] = Query(
             default=None,
             description="Style values that need to be considered for filter",
@@ -51,6 +52,9 @@ async def get_artists_list(
             title="Style"
         ),
 ):
+    if session_id is None:
+        session_id = extract_bearer(request)
+
     return find_all_artists(session_id, style_list)
 
 
@@ -216,11 +220,39 @@ async def about_me(request: Request):
     return response
 
 
-def extract_bearer(request):
+@app.get("/Accounts/show/", tags=["Accounts"])
+async def show_account(
+        request: Request,
+        login: str = Query(description="username"),
+):
+    account = find_account(login)
+
+    content = {
+        "id": account.id,
+        "username": account.login,
+        "first_name": account.firstName,
+        "last_name": account.surName,
+        "middle_name": account.patronymic,
+        "birth_date": account.date_of_birth,
+        "phone_number": account.phone,
+        "email": account.email,
+        "gender": account.sex,
+        "role": account.type_role,
+        # Если адрес пустой, возвращаем пустую строку
+        "adres": account.residence or "",
+        "avatar_url": "",
+    }
+
+    response = JSONResponse(content=content)
+
+    return response
+
+
+def extract_bearer(request) -> str:
     headers = request.headers
     bearer = headers.get('Authorization')  # Bearer YourTokenHere
     token = bearer.split()[1]  # YourTokenHere
-    return token
+    return str(token)
 
 
 @app.delete("/Accounts/log_out", tags=["Accounts"])

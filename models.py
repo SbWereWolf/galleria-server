@@ -110,13 +110,9 @@ def create_session_token(
 def find_account_id(account):
     account_id = ""
 
-    artist = find_artist_by_account(account)
-    if artist is not None:
-        account_id = artist.id
-
-    visitor = find_visitor_by_account(account)
-    if visitor is not None:
-        account_id = visitor.id
+    hydrate_account(account)
+    if account is not None:
+        account_id = account.id
 
     return account_id
 
@@ -305,17 +301,22 @@ def create_account(account: Account):
 
 def find_account_by_token(token) -> Account:
     login = decode_token(token)
+    account = find_account_by_login(login)
+    if account is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Account with login {login} is not found"
+        )
+    return account
+
+
+def find_account_by_login(login) -> Account | None:
     account = next(
         (
             account for account in accounts_db
             if account.login == login)
         , None
     )
-    if account is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Account with login {login} is not found"
-        )
     return account
 
 
@@ -429,9 +430,9 @@ artists_db = [
 ]
 
 
-def find_artist_by_account(account) -> Artist | None:
+def find_artist_by_account(account: Account | None) -> Artist | None:
     existing_artist = None
-    if account.type_role == "artist":
+    if account is not None and account.type_role == "artist":
         existing_artist = next(
             (
                 artist for artist in artists_db
@@ -526,9 +527,9 @@ visitors_db = [
 ]
 
 
-def find_visitor_by_account(account) -> Visitor | None:
+def find_visitor_by_account(account: Account | None) -> Visitor | None:
     existing_visitor = None
-    if account.type_role == "visitor":
+    if account is not None and account.type_role == "visitor":
         existing_visitor = next(
             (
                 visitor for visitor in visitors_db
@@ -546,17 +547,28 @@ def find_visitor_by_account(account) -> Visitor | None:
     return existing_visitor
 
 
-def my_account(token: str) -> Account:
-    account = find_account_by_token(token)
+def find_account(login: str) -> Account | None:
+    account = find_account_by_login(login)
+    hydrate_account(account)
 
+    return account
+
+
+def hydrate_account(account):
     visitor = find_visitor_by_account(account)
     if visitor is not None:
         account.id = visitor.id
         account.residence = visitor.residence
-
     artist = find_artist_by_account(account)
     if artist is not None:
         account.id = artist.id
+
+    return account
+
+
+def my_account(token: str) -> Account:
+    account = find_account_by_token(token)
+    hydrate_account(account)
 
     return account
 
@@ -695,9 +707,9 @@ def write_voucher(
     existing_voucher = next((v for v in vouchers_db if v.id == voucher_id), None)
     if existing_voucher is None:
         raise HTTPException(status_code=404, detail="Voucher not found")
-    if (existing_voucher.status != 'placed' and existing_voucher.executor != login):
+    if existing_voucher.status != 'placed' and existing_voucher.executor != login:
         raise HTTPException(status_code=403, detail="Access denied: You do not own this voucher record")
-    if (existing_voucher.status == 'placed' and existing_voucher.executor == ""):
+    if existing_voucher.status == 'placed' and existing_voucher.executor == "":
         existing_voucher.executor = login
     existing_voucher.status = new_status  # Обновляем только статус
     return existing_voucher
