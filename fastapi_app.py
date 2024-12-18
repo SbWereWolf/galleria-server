@@ -100,7 +100,8 @@ async def place_voucher(
 
 @app.get("/Vouchers/list", response_model=List[Voucher], tags=["Vouchers"])
 async def find_vouchers(
-        session_id: str,
+        request: Request,
+        session_id: Optional[str] = None,
         style: Optional[List[str]] = Query(
             default=None,
             description="Style values that need to be considered for filter",
@@ -129,6 +130,8 @@ async def find_vouchers(
             title="Status"
         )
 ):
+    if session_id is None:
+        session_id = extract_bearer(request)
     return find_all_vouchers(session_id, style, status)
 
 
