@@ -66,18 +66,12 @@ async def get_artist(
     return find_artist(session_id, artist_id)
 
 
-@app.get(
-    "/Artists/styles/",
-    tags=["Artists"]
-)
+@app.get("/Artists/styles/", tags=["Artists"])
 async def get_all_styles():
     return {"styles": find_all_styles()}
 
 
-@app.get(
-    "/Artists/{login}/styles/",
-    tags=["Artists"]
-)
+@app.get("/Artists/{login}/styles/", tags=["Artists"])
 async def get_artist_style(
         request: Request,
         login: str,
@@ -98,7 +92,11 @@ async def place_voucher(
     return create_voucher(session_id, voucher)
 
 
-@app.get("/Vouchers/list", response_model=List[Voucher], tags=["Vouchers"])
+@app.get(
+    "/Vouchers/list",
+    response_model=List[Voucher],
+    tags=["Vouchers"]
+)
 async def find_vouchers(
         request: Request,
         session_id: Optional[str] = None,
@@ -135,11 +133,14 @@ async def find_vouchers(
     return find_all_vouchers(session_id, style, status)
 
 
-@app.get("/Vouchers", response_model=Voucher, tags=["Vouchers"])
+@app.get("/Vouchers/{voucher_id}/", response_model=Voucher, tags=["Vouchers"])
 async def get_voucher(
-        session_id: str,
+        request: Request,
+        session_id: Optional[str] = None,
         voucher_id: int = Path(..., description="ID of Vouchers to return")
 ):
+    if session_id is None:
+        session_id = extract_bearer(request)
     return find_voucher(session_id, voucher_id)
 
 
@@ -161,9 +162,12 @@ async def update_voucher(
 
 @app.delete("/Vouchers", tags=["Vouchers"])
 async def delete_voucher(
-        session_id: str,
-        voucher_id: int
+        request: Request,
+        voucher_id: int,
+        session_id: Optional[str] = None,
 ):
+    if session_id is None:
+        session_id = extract_bearer(request)
     remove_voucher(session_id, voucher_id)
     return {"detail": "Vouchers deleted successfully"}
 
