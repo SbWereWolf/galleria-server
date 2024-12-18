@@ -6,7 +6,7 @@ from models import find_all_artists, find_artist, find_all_vouchers, \
     write_visitor, write_artist, write_voucher, write_account, \
     create_voucher, remove_voucher, create_account, remove_account, \
     create_session, remove_session, my_login_and_role, my_account, \
-    find_artist_style, find_all_styles, find_account
+    find_artist_style, find_all_styles, find_account, NewAccount
 
 app = FastAPI(
     title="Картины на заказ",
@@ -164,7 +164,7 @@ async def delete_voucher(
 
 @app.post("/Accounts", response_model=Account, tags=["Accounts"])
 async def place_account(
-        account: Account,
+        account: NewAccount,
 ):
     return create_account(account)
 

@@ -163,6 +163,19 @@ def remove_session(session_id: str = ''):
     return "Ok"
 
 
+class NewAccount(BaseModel):
+    login: str = Field(..., example='10')
+    password: str = Field(..., example='theAccounts')
+    surName: str = Field(..., example='Green')
+    firstName: str = Field(..., example='John')
+    patronymic: Optional[str] = Field(None, example='James')
+    email: str = Field(..., example='john@email.com')
+    type_role: str = Field(..., example='artist')
+    phone: str = Field(..., example='12345')
+    sex: str = Field(..., example='m')
+    date_of_birth: str = Field(..., example='2000-01-01')  # формат даты
+
+
 class Account(BaseModel):
     id: int = Field(..., example=10)
     login: str = Field(..., example='10')
@@ -212,7 +225,7 @@ accounts_db = [
 ]
 
 
-def create_account(account: Account):
+def create_account(account: NewAccount):
     if any(v.login == account.login for v in accounts_db):
         raise HTTPException(status_code=400, detail="Error login already exists.")
     # Создаем новый
@@ -226,7 +239,9 @@ def create_account(account: Account):
         type_role=account.type_role,
         phone=account.phone,
         sex=account.sex,
-        date_of_birth=account.date_of_birth
+        date_of_birth=account.date_of_birth,
+        id=0,
+        residence="",
     )
     if new_account.surName is None:
         new_account.surName = ''
