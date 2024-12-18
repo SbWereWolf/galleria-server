@@ -256,9 +256,13 @@ def extract_bearer(request) -> str:
 
 @app.delete("/Accounts/log_out", tags=["Accounts"])
 async def log_out(
-        session_id: str = ''
+        request: Request,
+        session_id: Optional[str] = None
 ):
+    if session_id is None:
+        session_id = extract_bearer(request)
     remove_session(session_id)
+
     content = {"message": "Logout successful"}
     response = JSONResponse(content=content)
     return response
