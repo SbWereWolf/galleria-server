@@ -89,9 +89,12 @@ async def get_artist_style(
 
 @app.post("/Vouchers", response_model=Voucher, tags=["Vouchers"])
 async def place_voucher(
-        session_id: str,
-        voucher: Voucher
+        request: Request,
+        voucher: Voucher,
+        session_id: Optional[str] = None,
 ):
+    if session_id is None:
+        session_id = extract_bearer(request)
     return create_voucher(session_id, voucher)
 
 
