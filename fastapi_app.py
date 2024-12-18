@@ -222,7 +222,6 @@ async def about_me(request: Request):
 
 @app.get("/Accounts/show/", tags=["Accounts"])
 async def show_account(
-        request: Request,
         login: str = Query(description="username"),
 ):
     account = find_account(login)
@@ -276,10 +275,13 @@ async def find_accounts(
 
 @app.put("/Accounts", tags=["Accounts"])
 async def update_account_name(
-        session_id: str,
+        request: Request,
+        session_id: Optional[str] = None,
         new_first_name: str = Query(..., description="New first name for the account"),
         new_last_name: str = Query(..., description="New last name for the account"),
 ):
+    if session_id is None:
+        session_id = extract_bearer(request)
     write_account(session_id, new_first_name, new_last_name)
     return {"message": "Account name updated successfully"}
 
