@@ -153,10 +153,13 @@ AllowedStatus = Literal[
 
 @app.put("/Vouchers", response_model=Voucher, tags=["Vouchers"])
 async def update_voucher(
-        session_id: str,
+        request: Request,
         voucher_id: int,
-        new_status: AllowedStatus
+        new_status: AllowedStatus,
+        session_id: Optional[str] = None,
 ):
+    if session_id is None:
+        session_id = extract_bearer(request)
     return write_voucher(session_id, voucher_id, new_status)
 
 
