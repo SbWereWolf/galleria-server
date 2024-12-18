@@ -33,7 +33,7 @@ async def update_artist(
 @app.get("/Artists/list/", response_model=List[Artist], tags=["Artists"])
 async def get_artists_list(
         request: Request,
-        session_id: Optional[str],
+        session_id: Optional[str] = None,
         style_list: Optional[List[str]] = Query(
             default=None,
             description="Style values that need to be considered for filter",

@@ -501,10 +501,10 @@ def find_artist_style(
         session_id: str,
         login: str
 ):
-    account = find_account_by_token(session_id)
-    if account.login != login:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    # check authentication
+    find_account_by_token(session_id)
 
+    account = find_account_by_login(login)
     artist = find_artist_by_account(account)
     if artist is None:
         raise HTTPException(
