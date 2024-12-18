@@ -296,9 +296,12 @@ async def delete_account(
 
 @app.put("/Visitors", response_model=Visitor, tags=["Visitors"])
 async def update_visitor(
-        session_id: str,
+        request: Request,
         new_residence: str,
+        session_id: Optional[str] = None,
 ):
+    if session_id is None:
+        session_id = extract_bearer(request)
     return write_visitor(session_id, new_residence)
 
 
